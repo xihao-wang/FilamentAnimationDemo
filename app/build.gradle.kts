@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.filament.android)
     implementation(libs.filament.gltfio)
     implementation(libs.filament.utils)
+    implementation(libs.arcore)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

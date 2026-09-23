@@ -1,21 +1,27 @@
 package com.example.filamentanimationdemo
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.SurfaceView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.filamentanimationdemo.ar.ArActivity
 import com.example.filamentanimationdemo.render.FilamentRenderer
 import com.example.filamentanimationdemo.ui.theme.FilamentAnimationDemoTheme
 
@@ -38,6 +44,7 @@ private fun CharacterViewer(modifier: Modifier = Modifier) {
     var renderer by remember { mutableStateOf<FilamentRenderer?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
 
     DisposableEffect(lifecycleOwner, renderer) {
         val observer = LifecycleEventObserver { _, event ->
@@ -79,6 +86,15 @@ private fun CharacterViewer(modifier: Modifier = Modifier) {
 
         errorMessage?.let { message ->
             Text(text = message)
+        }
+
+        Button(
+            onClick = { context.startActivity(Intent(context, ArActivity::class.java)) },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Text("AR Mode")
         }
     }
 }
