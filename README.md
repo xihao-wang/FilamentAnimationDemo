@@ -14,13 +14,12 @@
 
 [下载 demo0.mp4](docs/demos/demo0.mp4)
 
-### Demo 1 — AR 平面检测与角色放置
+### Demo 1/2 — AR 中的 Warrior 动画
 
 [![AR plane detection and placement demo](docs/demos/demo1-preview.gif)](docs/demos/demo1.mp4)
 
 [下载 demo1.mp4](docs/demos/demo1.mp4)
 
-### Demo 2 — AR 中的 Warrior 动画
 
 [![AR Warrior animation demo](docs/demos/demo2-preview.gif)](docs/demos/demo2.mp4)
 
