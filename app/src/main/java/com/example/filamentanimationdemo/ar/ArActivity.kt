@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.TextureView
@@ -32,6 +33,8 @@ class ArActivity : ComponentActivity() {
     private var installRequested = false
     private var isResumed = false
     private var isReturningToViewer = false
+    private var currentStatus = ArStatus.SEARCHING
+    private var currentDiagnostics: ArDiagnostics? = null
 
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -65,7 +68,16 @@ class ArActivity : ComponentActivity() {
             cameraView = cameraView,
             frameStateStore = frameStateStore,
             onStatusChanged = { status ->
-                runOnUiThread { instructionView.text = status.message }
+                runOnUiThread {
+                    currentStatus = status
+                    updateInstructionText()
+                }
+            },
+            onDiagnosticsChanged = { diagnostics ->
+                runOnUiThread {
+                    currentDiagnostics = diagnostics
+                    updateInstructionText()
+                }
             },
             onError = { message -> runOnUiThread { returnToViewer(message) } }
         )
@@ -157,8 +169,14 @@ class ArActivity : ComponentActivity() {
                     configure(
                         config.apply {
                             planeFindingMode = Config.PlaneFindingMode.HORIZONTAL
+                            focusMode = Config.FocusMode.AUTO
                             lightEstimationMode = Config.LightEstimationMode.DISABLED
                         }
+                    )
+                    Log.i(
+                        TAG,
+                        "ARCore configured: planeFindingMode=${config.planeFindingMode}, " +
+                            "focusMode=${config.focusMode}"
                     )
                 }
                 cameraRenderer.session = session
@@ -188,14 +206,30 @@ class ArActivity : ComponentActivity() {
         finish()
     }
 
+    private fun updateInstructionText() {
+        val diagnostics = currentDiagnostics
+        instructionView.text = if (diagnostics == null) {
+            currentStatus.message
+        } else {
+            "${currentStatus.message}\n" +
+                "Camera: ${diagnostics.cameraTrackingState}\n" +
+                "Failure: ${diagnostics.trackingFailureReason}\n" +
+                "Planes: ${diagnostics.totalPlaneCount}\n" +
+                "Tracking: ${diagnostics.trackingPlaneCount}\n" +
+                "Horizontal: ${diagnostics.horizontalUpwardPlaneCount}\n" +
+                "Usable: ${diagnostics.trackedHorizontalPlaneCount}"
+        }
+    }
+
     private val ArStatus.message: String
         get() = when (this) {
             ArStatus.SEARCHING -> STATUS_SEARCHING
-            ArStatus.TAP_TO_PLACE -> "点击检测到的水平平面放置 Warrior"
-            ArStatus.PLACED -> "Warrior 已放置；点击其他平面可重新放置"
+            ArStatus.TAP_TO_PLACE -> "检测到平面，点击放置 Warrior"
+            ArStatus.PLACED -> "Warrior 已放置"
         }
 
     private companion object {
+        const val TAG = "ArActivity"
         const val STATUS_SEARCHING = "移动手机以检测桌面或地面"
     }
 }

@@ -31,7 +31,9 @@ internal class ArFilamentRenderer(
     init {
         Utils.init()
         textureView.isOpaque = false
-        modelViewer = ModelViewer(textureView)
+        // ARCore owns the camera pose. A ModelViewer camera manipulator would overwrite it
+        // inside ModelViewer.render(), putting anchored world content outside the AR view.
+        modelViewer = ModelViewer(textureView, manipulator = null)
         modelViewer.autoPlayAnimations = false
         modelViewer.view.blendMode = View.BlendMode.TRANSLUCENT
         modelViewer.renderer.clearOptions = modelViewer.renderer.clearOptions.apply {

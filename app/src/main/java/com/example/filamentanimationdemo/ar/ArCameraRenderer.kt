@@ -3,6 +3,7 @@ package com.example.filamentanimationdemo.ar
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.util.Log
 import android.view.Surface
 import android.view.View
 import com.google.ar.core.Anchor
@@ -23,6 +24,7 @@ internal class ArCameraRenderer(
     private val cameraView: View,
     private val frameStateStore: ArFrameStateStore,
     private val onStatusChanged: (ArStatus) -> Unit,
+    private val onDiagnosticsChanged: (ArDiagnostics) -> Unit,
     private val onError: (String) -> Unit
 ) : GLSurfaceView.Renderer {
 
@@ -44,6 +46,9 @@ internal class ArCameraRenderer(
     private var configuredSession: Session? = null
     private var anchor: Anchor? = null
     private var lastStatus: ArStatus? = null
+    private var lastDiagnostics: ArDiagnostics? = null
+    private var loggedFirstFrame = false
+    private var lastDisplayRotation: Int? = null
 
     fun queueTap(x: Float, y: Float) {
         pendingTaps.clear()
@@ -77,19 +82,50 @@ internal class ArCameraRenderer(
                 currentSession.setCameraTextureName(cameraTextureId)
                 configuredSession = currentSession
             }
+            val displayRotation = cameraView.display?.rotation ?: Surface.ROTATION_0
             currentSession.setDisplayGeometry(
-                cameraView.display?.rotation ?: Surface.ROTATION_0,
+                displayRotation,
                 surfaceWidth,
                 surfaceHeight
             )
+            if (lastDisplayRotation != displayRotation) {
+                lastDisplayRotation = displayRotation
+                Log.i(
+                    TAG,
+                    "Display geometry: rotation=$displayRotation, " +
+                        "size=${surfaceWidth}x$surfaceHeight"
+                )
+            }
 
             val frame = currentSession.update()
             if (frame.timestamp != 0L) {
+                if (!loggedFirstFrame) {
+                    loggedFirstFrame = true
+                    Log.i(TAG, "Session.update() produced the first camera frame")
+                }
                 updateCameraTexCoords(frame)
                 drawCameraBackground()
             }
 
             val camera = frame.camera
+            val planes = currentSession.getAllTrackables(Plane::class.java)
+            publishDiagnostics(
+                ArDiagnostics(
+                    cameraTrackingState = camera.trackingState.name,
+                    trackingFailureReason = camera.trackingFailureReason.name,
+                    totalPlaneCount = planes.size,
+                    trackingPlaneCount = planes.count {
+                        it.trackingState == TrackingState.TRACKING
+                    },
+                    horizontalUpwardPlaneCount = planes.count {
+                        it.type == Plane.Type.HORIZONTAL_UPWARD_FACING
+                    },
+                    trackedHorizontalPlaneCount = planes.count {
+                        it.trackingState == TrackingState.TRACKING &&
+                            it.type == Plane.Type.HORIZONTAL_UPWARD_FACING
+                    }
+                )
+            )
             if (camera.trackingState != TrackingState.TRACKING) {
                 publishStatus(ArStatus.SEARCHING)
                 return
@@ -202,6 +238,21 @@ internal class ArCameraRenderer(
         onStatusChanged(status)
     }
 
+    private fun publishDiagnostics(diagnostics: ArDiagnostics) {
+        if (lastDiagnostics == diagnostics) return
+        lastDiagnostics = diagnostics
+        Log.i(
+            TAG,
+            "Camera=${diagnostics.cameraTrackingState}, " +
+                "failure=${diagnostics.trackingFailureReason}, " +
+                "planes=${diagnostics.totalPlaneCount}, " +
+                "tracking=${diagnostics.trackingPlaneCount}, " +
+                "horizontal=${diagnostics.horizontalUpwardPlaneCount}, " +
+                "usableHorizontal=${diagnostics.trackedHorizontalPlaneCount}"
+        )
+        onDiagnosticsChanged(diagnostics)
+    }
+
     private fun createExternalTexture(): Int {
         val textureIds = IntArray(1)
         GLES20.glGenTextures(1, textureIds, 0)
@@ -261,6 +312,7 @@ internal class ArCameraRenderer(
     private data class Tap(val x: Float, val y: Float)
 
     companion object {
+        private const val TAG = "ArCameraRenderer"
         private const val NEAR_CLIP_METERS = 0.05f
         private const val FAR_CLIP_METERS = 100f
 
@@ -302,3 +354,12 @@ internal enum class ArStatus {
     TAP_TO_PLACE,
     PLACED
 }
+
+internal data class ArDiagnostics(
+    val cameraTrackingState: String,
+    val trackingFailureReason: String,
+    val totalPlaneCount: Int,
+    val trackingPlaneCount: Int,
+    val horizontalUpwardPlaneCount: Int,
+    val trackedHorizontalPlaneCount: Int
+)
